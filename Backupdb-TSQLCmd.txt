@@ -1,0 +1,59 @@
+use [master]
+-- 開啟 xp_cmdshell
+EXEC sp_configure 'show advanced options', 1;
+GO
+RECONFIGURE;
+GO
+EXEC sp_configure 'xp_cmdshell', 1;
+GO
+RECONFIGURE;
+GO 
+
+--宣告變數
+DECLARE @FolderName nvarchar(100) = 'd:\db\dbbackup'
+DECLARE @DataBaseName nvarchar(100) = 'demodb'
+DECLARE @JobName nvarchar(100) = 'demodb 資料庫備份'
+DECLARE @FileName nvarchar(100)
+DECLARE @FileDate nvarchar(100)
+DECLARE @Command nvarchar(250)
+
+--取得日期變數 , 例 2013-01-01 12:30:40.001
+SET @FileDate = CONVERT(VARCHAR(100), GETDATE(), 121)
+
+--除去日期變數中的 - : . 符號 , 例 20130101_123040_001
+SET @FileDate = REPLACE( @FileDate , '-' , '' )
+SET @FileDate = REPLACE( @FileDate , ':' , '' )
+SET @FileDate = REPLACE( @FileDate , '.' , '_' )
+SET @FileDate = REPLACE( @FileDate , ' ' , '_' )
+
+--設定備份目錄,並自動以年、月建立目錄
+SET @Command = 'mkdir ' + @FolderName
+EXEC xp_cmdshell @Command, no_output
+
+SET @FolderName = @FolderName + '\' + @DataBaseName
+SET @Command = 'mkdir ' + @FolderName
+EXEC xp_cmdshell @Command, no_output
+
+SET @FolderName = @FolderName + '\' + SUBSTRING(@FileDate , 1 , 4)
+SET @Command = 'mkdir ' + @FolderName
+EXEC xp_cmdshell @Command, no_output
+
+SET @FolderName = @FolderName + '\' + SUBSTRING(@FileDate , 5 , 2)
+SET @Command = 'mkdir ' + @FolderName
+EXEC xp_cmdshell @Command, no_output
+
+--設定檔案名稱 , 例 D:\db\dbbackup\demodb\2022\01\20220101_123040.bak
+SET @FileName = @FolderName + '\' + SUBSTRING(@FileDate , 1 , 15) + '.bak'
+
+--執行備份作業
+BACKUP DATABASE @DataBaseName TO DISK = @FileName WITH NOINIT , NOUNLOAD , NAME = @JobName , NOSKIP , STATS = 10, NOFORMAT
+
+
+-- 關閉 xp_cmdshell
+use [master]
+EXEC sp_configure 'show advanced options', 0;
+GO
+EXEC sp_configure 'xp_cmdshell', 0;
+GO
+RECONFIGURE;
+GO 
